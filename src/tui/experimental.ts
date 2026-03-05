@@ -199,9 +199,14 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
       }
 
       // Windowed scroll state
-      // Chrome: outer border(2) + padding(2) + success(1) + space(1) + stats box(~6) + space(1) + session box(~4) + space(1) + preview border(2) + shortcut bar(1) = ~21
-      const CHROME_LINES = 21;
-      const visibleRows = Math.max(3, renderer.height - CHROME_LINES);
+      // Normal view chrome: outer border(2) + padding(2) + success(1) + space(1) + stats box(~6) + space(1) + session box(~6) + space(1) + preview border(2) + shortcut bar(1) = ~23
+      const CHROME_LINES_NORMAL = 23;
+      // Diff view chrome: outer border(2) + padding(2) + success(1) + space(1) + pane border(2) + shortcut bar(1) = ~9
+      const CHROME_LINES_DIFF = 9;
+      const getVisibleRows = () => {
+        const chrome = showDiff && diffResult ? CHROME_LINES_DIFF : CHROME_LINES_NORMAL;
+        return Math.max(3, renderer.height - chrome);
+      };
       let scrollOffset = 0;
 
       /** Get the active set of lines for scrolling based on diff mode. */
@@ -213,7 +218,7 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
       };
 
       const adjustScroll = () => {
-        const maxOffset = Math.max(0, activeLineCount() - visibleRows);
+        const maxOffset = Math.max(0, activeLineCount() - getVisibleRows());
         scrollOffset = Math.max(0, Math.min(scrollOffset, maxOffset));
       };
 
@@ -223,9 +228,9 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
 
         // --- Normal single-pane preview ---
         if (!showDiff || !diffResult) {
-          const windowedLines = lines.slice(scrollOffset, scrollOffset + visibleRows);
+          const windowedLines = lines.slice(scrollOffset, scrollOffset + getVisibleRows());
           const previewNodes: any[] = [];
-          for (let i = 0; i < visibleRows; i++) {
+          for (let i = 0; i < getVisibleRows(); i++) {
             if (i < windowedLines.length) {
               const lineIdx = scrollOffset + i;
               const lineNodes = colorLineRich(windowedLines[i], fenceState[lineIdx], Text, TextAttributes);
@@ -242,9 +247,9 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
             }
           }
 
-          const scrollPct = lines.length <= visibleRows
+          const scrollPct = lines.length <= getVisibleRows()
             ? ""
-            : ` (${Math.round((scrollOffset / Math.max(1, lines.length - visibleRows)) * 100)}%)`;
+            : ` (${Math.round((scrollOffset / Math.max(1, lines.length - getVisibleRows())) * 100)}%)`;
           const previewTitle = `Output preview [${lines.length} lines]${scrollPct}`;
 
           renderer.root.add(
@@ -300,7 +305,7 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
                   overflow: "hidden" as const,
                   onMouseScroll: (event: { scroll?: { direction: string } }) => {
                     if (!event.scroll) return;
-                    const maxOffset = Math.max(0, lines.length - visibleRows);
+                    const maxOffset = Math.max(0, lines.length - getVisibleRows());
                     if (event.scroll.direction === "up") {
                       scrollOffset = Math.max(0, scrollOffset - 3);
                     } else if (event.scroll.direction === "down") {
@@ -331,15 +336,15 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
           const mdLines = lines;
           const totalLines = Math.max(htmlLines.length, mdLines.length);
 
-          const scrollPct = totalLines <= visibleRows
+          const scrollPct = totalLines <= getVisibleRows()
             ? ""
-            : ` (${Math.round((scrollOffset / Math.max(1, totalLines - visibleRows)) * 100)}%)`;
+            : ` (${Math.round((scrollOffset / Math.max(1, totalLines - getVisibleRows())) * 100)}%)`;
 
           // Build left pane (HTML diff) and right pane (clean markdown)
           const leftNodes: any[] = [];
           const rightNodes: any[] = [];
 
-          for (let i = 0; i < visibleRows; i++) {
+          for (let i = 0; i < getVisibleRows(); i++) {
             const lineIdx = scrollOffset + i;
 
             // Left pane: HTML lines colored by diff type
@@ -392,7 +397,7 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
                   width: "100%" as const,
                   onMouseScroll: (event: { scroll?: { direction: string } }) => {
                     if (!event.scroll) return;
-                    const maxOffset = Math.max(0, totalLines - visibleRows);
+                    const maxOffset = Math.max(0, totalLines - getVisibleRows());
                     if (event.scroll.direction === "up") {
                       scrollOffset = Math.max(0, scrollOffset - 3);
                     } else if (event.scroll.direction === "down") {
@@ -465,18 +470,18 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
               return;
             case "down":
             case "j": {
-              const maxOffset = Math.max(0, activeLineCount() - visibleRows);
+              const maxOffset = Math.max(0, activeLineCount() - getVisibleRows());
               scrollOffset = Math.min(maxOffset, scrollOffset + 1);
               renderResults();
               return;
             }
             case "pageup":
-              scrollOffset = Math.max(0, scrollOffset - visibleRows);
+              scrollOffset = Math.max(0, scrollOffset - getVisibleRows());
               renderResults();
               return;
             case "pagedown": {
-              const maxOffset = Math.max(0, activeLineCount() - visibleRows);
-              scrollOffset = Math.min(maxOffset, scrollOffset + visibleRows);
+              const maxOffset = Math.max(0, activeLineCount() - getVisibleRows());
+              scrollOffset = Math.min(maxOffset, scrollOffset + getVisibleRows());
               renderResults();
               return;
             }
@@ -485,7 +490,7 @@ export async function runExperimentalTui(options: TuiRunOptions): Promise<boolea
               renderResults();
               return;
             case "end": {
-              const maxOffset = Math.max(0, activeLineCount() - visibleRows);
+              const maxOffset = Math.max(0, activeLineCount() - getVisibleRows());
               scrollOffset = maxOffset;
               renderResults();
               return;
